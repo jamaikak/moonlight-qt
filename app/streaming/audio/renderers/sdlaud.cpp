@@ -2,8 +2,9 @@
 
 #include <Limelight.h>
 
-SdlAudioRenderer::SdlAudioRenderer()
-    : m_AudioDevice(0),
+SdlAudioRenderer::SdlAudioRenderer(const QString& displayName)
+    : m_DisplayName(displayName),
+      m_AudioDevice(0),
       m_AudioBuffer(nullptr)
 {
     SDL_assert(!SDL_WasInit(SDL_INIT_AUDIO));
@@ -14,6 +15,38 @@ SdlAudioRenderer::SdlAudioRenderer()
                      SDL_GetError());
         SDL_assert(SDL_WasInit(SDL_INIT_AUDIO));
     }
+}
+
+QString SdlAudioRenderer::findDisplayAudioDevice()
+{
+    if (m_DisplayName.isEmpty()) {
+        return QString();
+    }
+
+    QString airPlayDevice;
+    int deviceCount = SDL_GetNumAudioDevices(0);
+    for (int i = 0; i < deviceCount; i++) {
+        const char* name = SDL_GetAudioDeviceName(i, 0);
+        if (name == nullptr || name[0] == 0) {
+            continue;
+        }
+
+        // Displays with speakers (HDMI, DisplayPort, AirPlay receivers) expose
+        // an output device that is usually named after the display itself.
+        QString deviceName = QString::fromUtf8(name);
+        if (deviceName.compare(m_DisplayName, Qt::CaseInsensitive) == 0 ||
+                deviceName.contains(m_DisplayName, Qt::CaseInsensitive) ||
+                m_DisplayName.contains(deviceName, Qt::CaseInsensitive)) {
+            return deviceName;
+        }
+
+        // macOS may expose the AirPlay receiver as a generic AirPlay device
+        if (airPlayDevice.isEmpty() && deviceName.contains("AirPlay", Qt::CaseInsensitive)) {
+            airPlayDevice = deviceName;
+        }
+    }
+
+    return airPlayDevice;
 }
 
 bool SdlAudioRenderer::prepareForPlayback(const OPUS_MULTISTREAM_CONFIGURATION* opusConfig)
@@ -37,7 +70,31 @@ bool SdlAudioRenderer::prepareForPlayback(const OPUS_MULTISTREAM_CONFIGURATION* 
                   opusConfig->channelCount *
                   getAudioBufferSampleSize();
 
-    m_AudioDevice = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+    // Prefer the audio output of the display we're streaming to, if it has one
+    QString displayDevice = findDisplayAudioDevice();
+    if (!displayDevice.isEmpty()) {
+        m_AudioDevice = SDL_OpenAudioDevice(displayDevice.toUtf8().constData(), 0, &want, &have, 0);
+        if (m_AudioDevice != 0) {
+            SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                        "Playing audio on display audio device: %s",
+                        qPrintable(displayDevice));
+        }
+        else {
+            SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                        "Failed to open display audio device '%s': %s",
+                        qPrintable(displayDevice),
+                        SDL_GetError());
+        }
+    }
+    else if (!m_DisplayName.isEmpty()) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                    "No audio device found for display '%s'; using default output",
+                    qPrintable(m_DisplayName));
+    }
+
+    if (m_AudioDevice == 0) {
+        m_AudioDevice = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
+    }
     if (m_AudioDevice == 0) {
         SDL_LogError(SDL_LOG_CATEGORY_APPLICATION,
                      "Failed to open audio device: %s",

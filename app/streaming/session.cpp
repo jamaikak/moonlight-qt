@@ -1793,6 +1793,17 @@ void Session::start()
     // NB: m_InputHandler must be initialize before starting the connection.
     m_InputHandler = new SdlInputHandler(*m_Preferences, m_StreamConfig.width, m_StreamConfig.height);
 
+    // If we're streaming to a display other than the one showing our UI (like an
+    // AirPlay receiver), play our audio on that display too. This only affects
+    // Moonlight's audio output, not the system default output device.
+    QScreen* targetScreen = getTargetScreen();
+    if (targetScreen != nullptr && m_QtWindow != nullptr && targetScreen != m_QtWindow->screen()) {
+        m_AudioDisplayName = targetScreen->name();
+    }
+    else {
+        m_AudioDisplayName.clear();
+    }
+
     // Kick off the async connection thread then return to the caller to pump the event loop
     auto thread = new AsyncConnectionStartThread(this);
     QObject::connect(thread, &QThread::finished, this, &Session::exec);

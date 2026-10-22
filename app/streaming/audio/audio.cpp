@@ -11,7 +11,7 @@
 
 #define TRY_INIT_RENDERER(renderer, opusConfig)        \
 {                                                      \
-    IAudioRenderer* __renderer = new renderer();       \
+    IAudioRenderer* __renderer = new renderer;         \
     if (__renderer->prepareForPlayback(opusConfig))    \
         return __renderer;                             \
     delete __renderer;                                 \
@@ -22,12 +22,12 @@ IAudioRenderer* Session::createAudioRenderer(const POPUS_MULTISTREAM_CONFIGURATI
     // Handle explicit ML_AUDIO setting and fail if the requested backend fails
     QString mlAudio = qgetenv("ML_AUDIO").toLower();
     if (mlAudio == "sdl") {
-        TRY_INIT_RENDERER(SdlAudioRenderer, opusConfig)
+        TRY_INIT_RENDERER(SdlAudioRenderer(m_AudioDisplayName), opusConfig)
         return nullptr;
     }
 #if defined(HAVE_SLAUDIO)
     else if (mlAudio == "slaudio") {
-        TRY_INIT_RENDERER(SLAudioRenderer, opusConfig)
+        TRY_INIT_RENDERER(SLAudioRenderer(), opusConfig)
         return nullptr;
     }
 #endif
@@ -42,11 +42,11 @@ IAudioRenderer* Session::createAudioRenderer(const POPUS_MULTISTREAM_CONFIGURATI
 
 #if defined(HAVE_SLAUDIO)
     // Steam Link should always have SLAudio
-    TRY_INIT_RENDERER(SLAudioRenderer, opusConfig)
+    TRY_INIT_RENDERER(SLAudioRenderer(), opusConfig)
 #endif
 
     // Default to SDL
-    TRY_INIT_RENDERER(SdlAudioRenderer, opusConfig)
+    TRY_INIT_RENDERER(SdlAudioRenderer(m_AudioDisplayName), opusConfig)
 
     return nullptr;
 }
