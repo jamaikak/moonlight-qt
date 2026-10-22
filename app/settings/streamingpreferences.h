@@ -119,6 +119,14 @@ public:
     };
     Q_ENUM(CaptureSysKeysMode);
 
+    enum StreamDisplayMode
+    {
+        SDM_SAME_AS_UI,
+        SDM_ASK,
+        SDM_PREFER_EXTERNAL,
+    };
+    Q_ENUM(StreamDisplayMode);
+
     Q_PROPERTY(int width MEMBER width NOTIFY displayModeChanged)
     Q_PROPERTY(int height MEMBER height NOTIFY displayModeChanged)
     Q_PROPERTY(int fps MEMBER fps NOTIFY displayModeChanged)
@@ -157,6 +165,7 @@ public:
     Q_PROPERTY(bool keepAwake MEMBER keepAwake NOTIFY keepAwakeChanged)
     Q_PROPERTY(CaptureSysKeysMode captureSysKeysMode MEMBER captureSysKeysMode NOTIFY captureSysKeysModeChanged)
     Q_PROPERTY(Language language MEMBER language NOTIFY languageChanged);
+    Q_PROPERTY(StreamDisplayMode streamDisplayMode MEMBER streamDisplayMode NOTIFY streamDisplayModeChanged);
 
     Q_INVOKABLE bool retranslate();
 
@@ -200,6 +209,7 @@ public:
     Language language;
     CaptureSysKeysMode captureSysKeysMode;
     RendererSelection rendererSelection;
+    StreamDisplayMode streamDisplayMode;
 
 signals:
     void displayModeChanged();
@@ -238,6 +248,7 @@ signals:
     void keepAwakeChanged();
     void languageChanged();
     void rendererSelectionChanged();
+    void streamDisplayModeChanged();
 
 private:
     explicit StreamingPreferences(QQmlEngine *qmlEngine);

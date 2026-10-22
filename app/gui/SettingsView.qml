@@ -812,6 +812,73 @@ Flickable {
                     ToolTip.text: qsTr("Fullscreen generally provides the best performance, but borderless windowed may work better with features like macOS Spaces, Alt+Tab, screenshot tools, on-screen overlays, etc.")
                 }
 
+                Label {
+                    width: parent.width
+                    id: streamDisplayTitle
+                    text: qsTr("Stream to display")
+                    font.pointSize: 12
+                    wrapMode: Text.Wrap
+                    visible: SystemProperties.hasDesktopEnvironment
+                }
+
+                AutoResizingComboBox {
+                    function createModel() {
+                        var model = Qt.createQmlObject('import QtQuick 2.0; ListModel {}', parent, '')
+
+                        model.append({
+                                         text: qsTr("Ask when an external display is connected"),
+                                         val: StreamingPreferences.SDM_ASK
+                                     })
+
+                        model.append({
+                                         text: qsTr("External display (AirPlay, HDMI, etc.)"),
+                                         val: StreamingPreferences.SDM_PREFER_EXTERNAL
+                                     })
+
+                        model.append({
+                                         text: qsTr("Same display as Moonlight"),
+                                         val: StreamingPreferences.SDM_SAME_AS_UI
+                                     })
+
+                        return model
+                    }
+
+                    // This is used on initialization and upon retranslation
+                    function reinitialize() {
+                        model = createModel()
+                        currentIndex = 0
+
+                        // Set the current value based on the saved preferences
+                        var savedSdm = StreamingPreferences.streamDisplayMode
+                        for (var i = 0; i < model.count; i++) {
+                             if (savedSdm === model.get(i).val) {
+                                 currentIndex = i
+                                 break
+                             }
+                        }
+
+                        activated(currentIndex)
+                    }
+
+                    Component.onCompleted: {
+                        reinitialize()
+                        languageChanged.connect(reinitialize)
+                    }
+
+                    id: streamDisplayComboBox
+                    visible: SystemProperties.hasDesktopEnvironment
+                    hoverEnabled: true
+                    textRole: "text"
+                    onActivated: {
+                        StreamingPreferences.streamDisplayMode = model.get(currentIndex).val
+                    }
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 5000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("Show the stream on another display, such as an AirPlay receiver used as a separate display, while this computer's keyboard, mouse, and gamepads keep controlling it.")
+                }
+
                 Row {
                     spacing: 5
                     width: parent.width
