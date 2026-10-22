@@ -4,6 +4,7 @@ import QtQuick.Window 2.2
 
 import SdlGamepadKeyNavigation 1.0
 import Session 1.0
+import StreamingPreferences 1.0
 import SystemProperties 1.0
 
 Item {
@@ -125,8 +126,99 @@ Item {
         // since it may currently be using the SDL video subsystem
         SystemProperties.waitForAsyncLoad()
 
+        // Let the user pick which display to stream to (such as an AirPlay
+        // receiver) before we start. On macOS, we offer this even with a single
+        // display, since AirPlay displays can be connected from the dialog.
+        if (!quitAfter &&
+                StreamingPreferences.streamDisplayMode === StreamingPreferences.SDM_ASK &&
+                SystemProperties.hasDesktopEnvironment &&
+                (Qt.application.screens.length > 1 || Qt.platform.os === "osx")) {
+            displayPickerDialog.open()
+        }
+        else {
+            // Kick off the stream
+            streamLoader.active = true
+        }
+    }
+
+    function startOnScreen(screenName)
+    {
+        session.setTargetScreen(screenName)
+        displayPickerDialog.streamStarting = true
+        displayPickerDialog.close()
+
         // Kick off the stream
         streamLoader.active = true
+    }
+
+    NavigableDialog {
+        id: displayPickerDialog
+        property bool streamStarting: false
+
+        title: qsTr("Stream to display")
+        standardButtons: Dialog.Cancel
+
+        onOpened: {
+            streamStarting = false
+            if (displayRepeater.count > 0) {
+                displayRepeater.itemAt(0).forceActiveFocus()
+            }
+        }
+
+        onClosed: {
+            // Cancelling the picker cancels the stream
+            if (!streamStarting) {
+                stackView.pop()
+            }
+        }
+
+        Column {
+            spacing: 10
+
+            Label {
+                width: 400
+                text: qsTr("Choose where the stream should be shown. This computer's keyboard, mouse, and gamepads will keep controlling the stream.")
+                wrapMode: Text.Wrap
+            }
+
+            Repeater {
+                id: displayRepeater
+
+                // Qt.application.screens updates live, so displays connected
+                // while this dialog is open (like AirPlay) show up immediately.
+                model: Qt.application.screens
+
+                Button {
+                    width: 400
+                    text: {
+                        var label = modelData.name + " (" + modelData.width + "x" + modelData.height + ")"
+                        if (window.screen && modelData.name === window.screen.name) {
+                            label += " - " + qsTr("this screen")
+                        }
+                        return label
+                    }
+
+                    onClicked: startOnScreen(modelData.name)
+                    Keys.onReturnPressed: clicked()
+                    Keys.onEnterPressed: clicked()
+                    KeyNavigation.down: displayRepeater.itemAt(index + 1)
+                    KeyNavigation.up: index > 0 ? displayRepeater.itemAt(index - 1) : null
+                }
+            }
+
+            Label {
+                width: 400
+                visible: Qt.platform.os === "osx"
+                text: qsTr("To stream to an AirPlay device, choose it under Screen Mirroring in Control Center and select \"Use As Separate Display\". It will appear in the list above.")
+                wrapMode: Text.Wrap
+            }
+
+            Button {
+                visible: Qt.platform.os === "osx"
+                text: qsTr("Open Displays settings")
+                onClicked: Qt.openUrlExternally("x-apple.systempreferences:com.apple.preference.displays")
+            }
+        }
     }
 
     Timer {

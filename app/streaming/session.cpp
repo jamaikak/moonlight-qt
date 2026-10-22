@@ -1315,6 +1315,40 @@ private:
     Session* m_Session;
 };
 
+void Session::setTargetScreen(QString screenName)
+{
+    m_TargetScreenName = screenName;
+}
+
+QScreen* Session::getTargetScreen()
+{
+    QScreen* uiScreen = m_QtWindow != nullptr ? m_QtWindow->screen() : nullptr;
+
+    // An explicit choice (from the display picker) wins if that screen is still connected
+    if (!m_TargetScreenName.isEmpty()) {
+        for (QScreen* screen : QGuiApplication::screens()) {
+            if (screen->name() == m_TargetScreenName) {
+                return screen;
+            }
+        }
+
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,
+                    "Selected screen '%s' is no longer connected",
+                    qPrintable(m_TargetScreenName));
+    }
+    else if (m_Preferences->streamDisplayMode == StreamingPreferences::SDM_PREFER_EXTERNAL) {
+        // Use the first display other than the one showing Moonlight's UI,
+        // such as an AirPlay receiver used as a separate display.
+        for (QScreen* screen : QGuiApplication::screens()) {
+            if (screen != uiScreen) {
+                return screen;
+            }
+        }
+    }
+
+    return uiScreen;
+}
+
 void Session::getWindowDimensions(int& x, int& y,
                                   int& width, int& height)
 {
@@ -1324,17 +1358,18 @@ void Session::getWindowDimensions(int& x, int& y,
         displayIndex = SDL_GetWindowDisplayIndex(m_Window);
         SDL_assert(displayIndex >= 0);
     }
-    // Create our window on the same display that Qt's UI
-    // was being displayed on.
+    // Create our window on the display selected for streaming,
+    // which defaults to the display Qt's UI was being displayed on.
     else {
         Q_ASSERT(m_QtWindow != nullptr);
         if (m_QtWindow != nullptr) {
-            QScreen* screen = m_QtWindow->screen();
+            QScreen* screen = getTargetScreen();
             if (screen != nullptr) {
                 QRect displayRect = screen->geometry();
 
                 SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-                            "Qt UI screen is at (%d,%d)",
+                            "Streaming to screen '%s' at (%d,%d)",
+                            qPrintable(screen->name()),
                             displayRect.x(), displayRect.y());
                 for (int i = 0; i < SDL_GetNumVideoDisplays(); i++) {
                     SDL_Rect displayBounds;

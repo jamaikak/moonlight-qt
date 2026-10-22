@@ -52,6 +52,7 @@
 #define SER_KEEPAWAKE "keepawake"
 #define SER_LANGUAGE "language"
 #define SER_RENDERER "renderer"
+#define SER_STREAMDISPLAY "streamdisplay"
 
 #define CURRENT_DEFAULT_VER 2
 
@@ -171,6 +172,8 @@ void StreamingPreferences::reload()
                                                                                                                  : UIDisplayMode::UI_MAXIMIZED)).toInt());
     language = static_cast<Language>(settings.value(SER_LANGUAGE,
                                                     static_cast<int>(Language::LANG_AUTO)).toInt());
+    streamDisplayMode = static_cast<StreamDisplayMode>(settings.value(SER_STREAMDISPLAY,
+                                                       static_cast<int>(StreamDisplayMode::SDM_ASK)).toInt());
 
 
     // Perform default settings updates as required based on last default version
@@ -362,6 +365,7 @@ void StreamingPreferences::save()
     settings.setValue(SER_SWAPFACEBUTTONS, swapFaceButtons);
     settings.setValue(SER_CAPTURESYSKEYS, captureSysKeysMode);
     settings.setValue(SER_KEEPAWAKE, keepAwake);
+    settings.setValue(SER_STREAMDISPLAY, static_cast<int>(streamDisplayMode));
 }
 
 int StreamingPreferences::getDefaultBitrate(int width, int height, int fps, bool yuv444)

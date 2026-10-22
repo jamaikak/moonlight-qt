@@ -104,6 +104,11 @@ public:
     Q_INVOKABLE bool initialize(QQuickWindow* qtWindow);
     Q_INVOKABLE void start();
     Q_INVOKABLE void interrupt();
+
+    // Select the screen (by QScreen name) that the stream window should be
+    // created on, such as an AirPlay or other external display. An empty
+    // string uses the default display selection.
+    Q_INVOKABLE void setTargetScreen(QString screenName);
     Q_PROPERTY(QStringList launchWarnings MEMBER m_LaunchWarnings NOTIFY launchWarningsChanged);
 
     static
@@ -161,6 +166,8 @@ private:
     bool testAudio(int audioConfiguration);
 
     int getAudioRendererCapabilities(int audioConfiguration);
+
+    QScreen* getTargetScreen();
 
     void getWindowDimensions(int& x, int& y,
                              int& width, int& height);
@@ -258,6 +265,7 @@ private:
     bool m_AudioMuted;
     Uint32 m_FullScreenFlag;
     QQuickWindow* m_QtWindow;
+    QString m_TargetScreenName;
     bool m_UnexpectedTermination;
     SdlInputHandler* m_InputHandler;
     int m_MouseEmulationRefCount;
