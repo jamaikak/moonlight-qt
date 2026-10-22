@@ -1320,6 +1320,11 @@ void Session::setTargetScreen(QString screenName)
     m_TargetScreenName = screenName;
 }
 
+void Session::setAudioOutputDevice(QString deviceName)
+{
+    m_AudioOutputDevice = deviceName;
+}
+
 QScreen* Session::getTargetScreen()
 {
     QScreen* uiScreen = m_QtWindow != nullptr ? m_QtWindow->screen() : nullptr;
@@ -1797,7 +1802,10 @@ void Session::start()
     // AirPlay receiver), play our audio on that display too. This only affects
     // Moonlight's audio output, not the system default output device.
     QScreen* targetScreen = getTargetScreen();
-    if (targetScreen != nullptr && m_QtWindow != nullptr && targetScreen != m_QtWindow->screen()) {
+    if (!m_AudioOutputDevice.isEmpty()) {
+        m_AudioDisplayName = m_AudioOutputDevice;
+    }
+    else if (targetScreen != nullptr && m_QtWindow != nullptr && targetScreen != m_QtWindow->screen()) {
         m_AudioDisplayName = targetScreen->name();
     }
     else {

@@ -109,6 +109,10 @@ public:
     // created on, such as an AirPlay or other external display. An empty
     // string uses the default display selection.
     Q_INVOKABLE void setTargetScreen(QString screenName);
+
+    // Play audio on the output device with this name (like an AirPlay receiver)
+    // instead of the one belonging to the target screen
+    Q_INVOKABLE void setAudioOutputDevice(QString deviceName);
     Q_PROPERTY(QStringList launchWarnings MEMBER m_LaunchWarnings NOTIFY launchWarningsChanged);
 
     static
@@ -267,6 +271,7 @@ private:
     QQuickWindow* m_QtWindow;
     QString m_TargetScreenName;
     QString m_AudioDisplayName;
+    QString m_AudioOutputDevice;
     bool m_UnexpectedTermination;
     SdlInputHandler* m_InputHandler;
     int m_MouseEmulationRefCount;

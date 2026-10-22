@@ -5,6 +5,7 @@ import QtQuick.Window 2.2
 import SdlGamepadKeyNavigation 1.0
 import Session 1.0
 import StreamingPreferences 1.0
+import AirPlayManager 1.0
 import SystemProperties 1.0
 
 Item {
@@ -69,6 +70,9 @@ Item {
         // Re-enable GUI gamepad usage now
         SdlGamepadKeyNavigation.enable()
 
+        // Turn off AirPlay if we turned it on for this stream
+        AirPlayManager.disconnectDevice()
+
         // Pop the StreamSegue off the stack if this is a GUI-based app launch
         if (!quitAfter) {
             stackView.pop()
@@ -126,13 +130,13 @@ Item {
         // since it may currently be using the SDL video subsystem
         SystemProperties.waitForAsyncLoad()
 
-        // Let the user pick which display to stream to (such as an AirPlay
-        // receiver) before we start. On macOS, we offer this even with a single
-        // display, since AirPlay displays can be connected from the dialog.
+        // Let the user pick where to show the stream (an AirPlay receiver or
+        // another display) before we start. When we can turn on AirPlay for
+        // the user, we offer this even with a single display.
         if (!quitAfter &&
                 StreamingPreferences.streamDisplayMode === StreamingPreferences.SDM_ASK &&
                 SystemProperties.hasDesktopEnvironment &&
-                (Qt.application.screens.length > 1 || Qt.platform.os === "osx")) {
+                (Qt.application.screens.length > 1 || AirPlayManager.isSupported)) {
             displayPickerDialog.open()
         }
         else {
@@ -141,9 +145,10 @@ Item {
         }
     }
 
-    function startOnScreen(screenName)
+    function startOnScreen(screenName, audioDevice)
     {
         session.setTargetScreen(screenName)
+        session.setAudioOutputDevice(audioDevice)
         displayPickerDialog.streamStarting = true
         displayPickerDialog.close()
 
@@ -151,23 +156,56 @@ Item {
         streamLoader.active = true
     }
 
+    Connections {
+        target: AirPlayManager
+
+        onConnectFinished: {
+            var deviceName = displayPickerDialog.pendingAirPlayDevice
+            if (deviceName === "") {
+                // Not ours, or the picker was cancelled while we were connecting
+                return
+            }
+
+            displayPickerDialog.pendingAirPlayDevice = ""
+            if (success) {
+                // If the receiver became a separate display, newScreenName puts the
+                // stream there. Otherwise the receiver mirrors this screen.
+                startOnScreen(newScreenName, deviceName)
+            }
+            else {
+                displayPickerDialog.errorText = error
+            }
+        }
+    }
+
     NavigableDialog {
         id: displayPickerDialog
         property bool streamStarting: false
+        property string pendingAirPlayDevice: ""
+        property string errorText: ""
 
         title: qsTr("Stream to display")
         standardButtons: Dialog.Cancel
 
         onOpened: {
             streamStarting = false
+            pendingAirPlayDevice = ""
+            errorText = ""
+            AirPlayManager.startDiscovery()
             if (displayRepeater.count > 0) {
                 displayRepeater.itemAt(0).forceActiveFocus()
             }
         }
 
         onClosed: {
+            AirPlayManager.stopDiscovery()
+
             // Cancelling the picker cancels the stream
             if (!streamStarting) {
+                if (pendingAirPlayDevice !== "") {
+                    AirPlayManager.cancelConnect()
+                }
+                pendingAirPlayDevice = ""
                 stackView.pop()
             }
         }
@@ -185,11 +223,12 @@ Item {
                 id: displayRepeater
 
                 // Qt.application.screens updates live, so displays connected
-                // while this dialog is open (like AirPlay) show up immediately.
+                // while this dialog is open show up immediately.
                 model: Qt.application.screens
 
                 Button {
                     width: 400
+                    enabled: !AirPlayManager.busy
                     text: {
                         var label = modelData.name + " (" + modelData.width + "x" + modelData.height + ")"
                         if (window.screen && modelData.name === window.screen.name) {
@@ -198,25 +237,84 @@ Item {
                         return label
                     }
 
-                    onClicked: startOnScreen(modelData.name)
+                    onClicked: startOnScreen(modelData.name, "")
                     Keys.onReturnPressed: clicked()
                     Keys.onEnterPressed: clicked()
-                    KeyNavigation.down: displayRepeater.itemAt(index + 1)
+                    KeyNavigation.down: index + 1 < displayRepeater.count ?
+                                            displayRepeater.itemAt(index + 1) : airPlayRepeater.itemAt(0)
                     KeyNavigation.up: index > 0 ? displayRepeater.itemAt(index - 1) : null
                 }
             }
 
             Label {
                 width: 400
-                visible: Qt.platform.os === "osx"
-                text: qsTr("To stream to an AirPlay device, choose it under Screen Mirroring in Control Center and select \"Use As Separate Display\". It will appear in the list above.")
+                visible: AirPlayManager.isSupported
+                text: qsTr("AirPlay")
+                font.bold: true
+            }
+
+            Repeater {
+                id: airPlayRepeater
+                model: AirPlayManager.isSupported ? AirPlayManager.devices : []
+
+                Button {
+                    width: 400
+                    enabled: !AirPlayManager.busy
+                    text: modelData
+
+                    onClicked: {
+                        displayPickerDialog.errorText = ""
+                        displayPickerDialog.pendingAirPlayDevice = modelData
+                        AirPlayManager.connectDevice(modelData)
+                    }
+                    Keys.onReturnPressed: clicked()
+                    Keys.onEnterPressed: clicked()
+                    KeyNavigation.down: airPlayRepeater.itemAt(index + 1)
+                    KeyNavigation.up: index > 0 ? airPlayRepeater.itemAt(index - 1) :
+                                                  displayRepeater.itemAt(displayRepeater.count - 1)
+                }
+            }
+
+            Row {
+                spacing: 10
+                visible: AirPlayManager.isSupported && (AirPlayManager.busy || airPlayRepeater.count === 0)
+
+                BusyIndicator {
+                    running: parent.visible
+                    height: 30
+                    width: 30
+                }
+
+                Label {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: 360
+                    wrapMode: Text.Wrap
+                    text: AirPlayManager.busy ?
+                              qsTr("Turning on AirPlay to %1...").arg(displayPickerDialog.pendingAirPlayDevice) :
+                              qsTr("Looking for AirPlay devices...")
+                }
+            }
+
+            Label {
+                width: 400
+                visible: displayPickerDialog.errorText !== ""
+                text: displayPickerDialog.errorText
+                color: "red"
                 wrapMode: Text.Wrap
             }
 
             Button {
-                visible: Qt.platform.os === "osx"
-                text: qsTr("Open Displays settings")
-                onClicked: Qt.openUrlExternally("x-apple.systempreferences:com.apple.preference.displays")
+                visible: AirPlayManager.isSupported && displayPickerDialog.errorText !== "" && !AirPlayManager.hasPermission()
+                text: qsTr("Open Accessibility settings")
+                onClicked: AirPlayManager.openPermissionSettings()
+            }
+
+            Label {
+                width: 400
+                visible: AirPlayManager.isSupported
+                text: qsTr("Moonlight turns on AirPlay screen mirroring for you and turns it off when the stream ends. The first time, macOS will ask you to allow Moonlight under Accessibility.")
+                wrapMode: Text.Wrap
+                font.pointSize: 10
             }
         }
     }
