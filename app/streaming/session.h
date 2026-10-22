@@ -266,6 +266,7 @@ private:
     Uint32 m_FullScreenFlag;
     QQuickWindow* m_QtWindow;
     QString m_TargetScreenName;
+    QString m_AudioDisplayName;
     bool m_UnexpectedTermination;
     SdlInputHandler* m_InputHandler;
     int m_MouseEmulationRefCount;
