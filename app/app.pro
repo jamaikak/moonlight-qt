@@ -202,6 +202,7 @@ SOURCES += \
     path.cpp \
     settings/mappingmanager.cpp \
     gui/sdlgamepadkeynavigation.cpp \
+    gui/airplaymanager.cpp \
     streaming/video/overlaymanager.cpp \
     backend/systemproperties.cpp \
     wm.cpp
@@ -240,6 +241,8 @@ HEADERS += \
     path.h \
     settings/mappingmanager.h \
     gui/sdlgamepadkeynavigation.h \
+    gui/airplaymanager.h \
+    streaming/airplay/airplaymirroring.h \
     streaming/video/overlaymanager.h \
     backend/systemproperties.h
 
@@ -403,6 +406,13 @@ win32:!winrt {
         streaming/video/ffmpeg-renderers/dxva2.h \
         streaming/video/ffmpeg-renderers/d3d11va.h \
         streaming/video/ffmpeg-renderers/pacer/dxvsyncsource.h
+}
+macx {
+    SOURCES += streaming/airplay/airplaymirroring_mac.mm
+    LIBS += -framework ApplicationServices
+}
+else {
+    SOURCES += streaming/airplay/airplaymirroring_stub.cpp
 }
 macx {
     message(VideoToolbox renderer selected)

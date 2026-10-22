@@ -826,7 +826,7 @@ Flickable {
                         var model = Qt.createQmlObject('import QtQuick 2.0; ListModel {}', parent, '')
 
                         model.append({
-                                         text: qsTr("Ask when an external display is connected"),
+                                         text: qsTr("Ask when connecting (AirPlay or another display)"),
                                          val: StreamingPreferences.SDM_ASK
                                      })
 
@@ -876,7 +876,7 @@ Flickable {
                     ToolTip.delay: 1000
                     ToolTip.timeout: 5000
                     ToolTip.visible: hovered
-                    ToolTip.text: qsTr("Show the stream on another display, such as an AirPlay receiver used as a separate display, while this computer's keyboard, mouse, and gamepads keep controlling it.")
+                    ToolTip.text: qsTr("Show the stream on an AirPlay TV or another display, while this computer's keyboard, mouse, and gamepads keep controlling it.")
                 }
 
                 Row {
